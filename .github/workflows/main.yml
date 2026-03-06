@@ -31,10 +31,15 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: api-events/package-lock.json
 
-      # C. Installer les dépendances (npm install)
+      - name: 💾 Cache des dépendances npm
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-${{ hashFiles('api-events/package-lock.json') }}
+          restore-keys: npm-
+
+      # C. Installer les dépendances
       - name: 📦 Installation des dépendances
         run: npm ci
 
