@@ -2,7 +2,8 @@ const express = require('express');
 const app = express();
 const db = require('./database');
 
-app.use(express.json()); // Pour lire le JSON dans le corps des requêtes
+app.use(express.json());
+app.use(express.static('public')); // Sert le front depuis /public
 
 app.get('/', (req, res) => {
     res.send('Bienvenue sur l\'API de gestion d\'événements !');
@@ -48,6 +49,18 @@ app.post('/events', (req, res) => {
         date: newEvent.date,
         description: newEvent.description || null
     });
+});
+
+// DELETE /events/:id : Supprimer un événement
+app.delete('/events/:id', (req, res) => {
+    const { id } = req.params;
+    const result = db.prepare('DELETE FROM events WHERE id = ?').run(id);
+
+    if (result.changes === 0) {
+        return res.status(404).json({ error: "Événement introuvable" });
+    }
+
+    res.status(200).json({ message: `Événement #${id} supprimé` });
 });
 
 // Export de l'app (nécessaire pour les tests unitaires sans lancer le serveur)
