@@ -51,6 +51,33 @@ app.post('/events', (req, res) => {
     });
 });
 
+// PUT /events/:id : Mettre à jour un événement
+app.put('/events/:id', (req, res) => {
+    const { id } = req.params;
+    const { title, date, description } = req.body;
+
+    if (!title || !date) {
+        return res.status(400).json({ error: "Le titre et la date sont obligatoires" });
+    }
+
+    const eventDate = new Date(date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (eventDate < today) {
+        return res.status(400).json({ error: "La date ne peut pas être dans le passé" });
+    }
+
+    const result = db.prepare(
+        'UPDATE events SET title = ?, date = ?, description = ? WHERE id = ?'
+    ).run(title, date, description || null, id);
+
+    if (result.changes === 0) {
+        return res.status(404).json({ error: "Événement introuvable" });
+    }
+
+    res.status(200).json({ id: Number(id), title, date, description: description || null });
+});
+
 // DELETE /events/:id : Supprimer un événement
 app.delete('/events/:id', (req, res) => {
     const { id } = req.params;
