@@ -24,7 +24,7 @@ describe('GET /events', () => {
 
     it('retourne la liste des événements existants (200)', async () => {
         mockAll.mockReturnValueOnce([
-            { id: 1, title: 'Conf CI/CD', date: '2026-04-15', description: null, capacite: null, categorie: null, lieu: null }
+            { id: 1, title: 'Conf CI/CD', date: '2026-04-15', description: null, participants: null, categorie: null, lieu: null }
         ]);
         const res = await request(app).get('/events');
         expect(res.status).toBe(200);
@@ -55,13 +55,13 @@ describe('POST /events — Validations', () => {
     });
 
     it('refuse si la capacité est 0 (400)', async () => {
-        const res = await request(app).post('/events').send({ title: 'Event', date: '2028-01-01', capacite: 0 });
+        const res = await request(app).post('/events').send({ title: 'Event', date: '2028-01-01', participants: 0 });
         expect(res.status).toBe(400);
         expect(res.body.error).toBe("La capacité doit être un entier positif");
     });
 
     it('refuse si la capacité est négative (400)', async () => {
-        const res = await request(app).post('/events').send({ title: 'Event', date: '2028-01-01', capacite: -5 });
+        const res = await request(app).post('/events').send({ title: 'Event', date: '2028-01-01', participants: -5 });
         expect(res.status).toBe(400);
         expect(res.body.error).toBe("La capacité doit être un entier positif");
     });
@@ -75,7 +75,7 @@ describe('POST /events — Succès', () => {
         expect(res.status).toBe(201);
         expect(res.body.id).toBe(1);
         expect(res.body.title).toBe('Futur Event');
-        expect(res.body.capacite).toBeNull();
+        expect(res.body.participants).toBeNull();
         expect(res.body.categorie).toBeNull();
         expect(res.body.lieu).toBeNull();
     });
@@ -85,13 +85,13 @@ describe('POST /events — Succès', () => {
             title:       'Meetup DevOps',
             date:        '2028-06-15',
             description: 'Un super meetup',
-            capacite:    50,
+            participants:    50,
             categorie:   'Meetup',
             lieu:        'Paris'
         });
         expect(res.status).toBe(201);
         expect(res.body.title).toBe('Meetup DevOps');
-        expect(res.body.capacite).toBe(50);
+        expect(res.body.participants).toBe(50);
         expect(res.body.categorie).toBe('Meetup');
         expect(res.body.lieu).toBe('Paris');
     });
@@ -113,7 +113,7 @@ describe('PUT /events/:id — Validations', () => {
     });
 
     it('refuse si la capacité est invalide (400)', async () => {
-        const res = await request(app).put('/events/1').send({ title: 'Event', date: '2028-01-01', capacite: -1 });
+        const res = await request(app).put('/events/1').send({ title: 'Event', date: '2028-01-01', participants: -1 });
         expect(res.status).toBe(400);
         expect(res.body.error).toBe("La capacité doit être un entier positif");
     });
@@ -134,15 +134,99 @@ describe('PUT /events/:id — Succès', () => {
             title:       'Event Modifié',
             date:        '2028-09-01',
             description: 'Nouvelle description',
-            capacite:    100,
+            participants:    100,
             categorie:   'Conférence',
             lieu:        'Lyon'
         });
         expect(res.status).toBe(200);
         expect(res.body.title).toBe('Event Modifié');
-        expect(res.body.capacite).toBe(100);
+        expect(res.body.participants).toBe(100);
         expect(res.body.categorie).toBe('Conférence');
         expect(res.body.lieu).toBe('Lyon');
+    });
+});
+
+// ────────────────────────────────────────────────────────────────────
+describe('Sécurité API — Headers HTTP (Helmet)', () => {
+
+    it('expose l\'en-tête X-Content-Type-Options: nosniff', async () => {
+        const res = await request(app).get('/events');
+        expect(res.headers['x-content-type-options']).toBe('nosniff');
+    });
+
+    it('expose l\'en-tête X-Frame-Options pour bloquer le clickjacking', async () => {
+        const res = await request(app).get('/events');
+        // helmet renvoie SAMEORIGIN ou DENY selon la config
+        expect(res.headers['x-frame-options']).toMatch(/SAMEORIGIN|DENY/i);
+    });
+
+    it('ne renvoie pas l\'en-tête X-Powered-By (fingerprinting)', async () => {
+        const res = await request(app).get('/events');
+        expect(res.headers['x-powered-by']).toBeUndefined();
+    });
+});
+
+// ────────────────────────────────────────────────────────────────────
+describe('Sécurité API — Enforcement Content-Type', () => {
+
+    it('refuse un POST sans Content-Type application/json (415)', async () => {
+        const res = await request(app)
+            .post('/events')
+            .set('Content-Type', 'text/plain')
+            .send('title=Test&date=2028-01-01');
+        expect(res.status).toBe(415);
+        expect(res.body.error).toBe("Content-Type doit être application/json");
+    });
+
+    it('refuse un PUT sans Content-Type application/json (415)', async () => {
+        const res = await request(app)
+            .put('/events/1')
+            .set('Content-Type', 'text/plain')
+            .send('title=Test&date=2028-01-01');
+        expect(res.status).toBe(415);
+        expect(res.body.error).toBe("Content-Type doit être application/json");
+    });
+
+    it('accepte un POST avec Content-Type application/json (pas de 415)', async () => {
+        const res = await request(app)
+            .post('/events')
+            .set('Content-Type', 'application/json')
+            .send({ title: 'Sécurisé', date: '2028-01-01' });
+        expect(res.status).not.toBe(415);
+    });
+});
+
+// ────────────────────────────────────────────────────────────────────
+describe('Sécurité API — Sanitisation XSS', () => {
+
+    it('supprime les balises HTML dans le titre avant insertion (POST)', async () => {
+        const res = await request(app)
+            .post('/events')
+            .send({ title: '<script>alert("xss")</script>Conf', date: '2028-01-01' });
+        expect(res.status).toBe(201);
+        // Le bloc <script>...</script> entier est supprimé, "Conf" reste
+        expect(res.body.title).toBe('Conf');
+        expect(res.body.title).not.toContain('<script>');
+    });
+
+    it('supprime les balises HTML dans la description (POST)', async () => {
+        const res = await request(app)
+            .post('/events')
+            .send({ title: 'Event', date: '2028-01-01', description: '<img src=x onerror=alert(1)>Détail' });
+        expect(res.status).toBe(201);
+        expect(res.body.description).not.toContain('<img');
+        // Le texte "Détail" doit être conservé
+        expect(res.body.description).toContain('Détail');
+    });
+
+    it('supprime les balises HTML dans le titre avant mise à jour (PUT)', async () => {
+        const res = await request(app)
+            .put('/events/1')
+            .send({ title: '<b>Evil</b>Title', date: '2028-01-01' });
+        expect(res.status).toBe(200);
+        // Les balises <b> sont supprimées mais le texte "EvilTitle" est conservé
+        expect(res.body.title).toBe('EvilTitle');
+        expect(res.body.title).not.toContain('<b>');
     });
 });
 
