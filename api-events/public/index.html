@@ -269,6 +269,9 @@
         <label for="description">Description</label>
         <textarea id="description" placeholder="Détails de l'événement..."></textarea>
 
+        <label for="capacite">Capacité maximale</label>
+        <input type="number" id="capacite" placeholder="Ex: 50" min="1" />
+
         <button onclick="submitEvent()">Créer l'événement</button>
 
         <div id="toast" class="toast"></div>
@@ -316,6 +319,9 @@
         <label for="editDescription">Description</label>
         <textarea id="editDescription"></textarea>
 
+        <label for="editCapacite">Capacité maximale</label>
+        <input type="number" id="editCapacite" placeholder="Ex: 50" min="1" />
+
         <div id="editToast" class="toast"></div>
 
         <div class="modal-actions">
@@ -351,7 +357,8 @@
                         <div class="meta">${e.description || '<em>Pas de description</em>'}</div>
                     </div>
                     <span class="badge">📅 ${formatDate(e.date)}</span>
-                    <button class="edit-btn"   onclick="openModal(${e.id}, '${e.title.replace(/'/g,"\\'")}', '${e.date}', '${(e.description||'').replace(/'/g,"\\'")}')">✏️ Modifier</button>
+                    ${e.capacite ? `<span class="badge" style="background:#27ae60;margin-left:0.4rem">👥 ${e.capacite} places</span>` : ''}
+                    <button class="edit-btn"   onclick="openModal(${e.id}, '${e.title.replace(/'/g,"\\'")}', '${e.date}', '${(e.description||'').replace(/'/g,"\\'")}', ${e.capacite || 'null'})">✏️ Modifier</button>
                     <button class="delete-btn" onclick="deleteEvent(${e.id})">🗑️ Supprimer</button>
                 </div>
             `).join('');
@@ -367,6 +374,7 @@
         const title       = document.getElementById('title').value.trim();
         const date        = document.getElementById('date').value;
         const description = document.getElementById('description').value.trim();
+        const capacite    = document.getElementById('capacite').value;
         const toast       = document.getElementById('toast');
 
         toast.className = 'toast';
@@ -376,7 +384,7 @@
             const res = await fetch(`${API}/events`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title, date, description })
+                body: JSON.stringify({ title, date, description, capacite: capacite ? Number(capacite) : null })
             });
 
             const data = await res.json();
@@ -390,10 +398,10 @@
             toast.className = 'toast success';
             toast.textContent = `✅ Événement "${data.title}" créé avec l'id #${data.id}`;
 
-            // Reset du formulaire
-            document.getElementById('title').value = '';
-            document.getElementById('date').value = '';
+            document.getElementById('title').value       = '';
+            document.getElementById('date').value        = '';
             document.getElementById('description').value = '';
+            document.getElementById('capacite').value    = '';
 
             loadEvents();
 
@@ -404,11 +412,12 @@
     }
 
     // ── Modale édition ──────────────────────────────────────────────
-    function openModal(id, title, date, description) {
+    function openModal(id, title, date, description, capacite) {
         document.getElementById('editId').value          = id;
         document.getElementById('editTitle').value       = title;
         document.getElementById('editDate').value        = date;
         document.getElementById('editDescription').value = description;
+        document.getElementById('editCapacite').value    = capacite !== null ? capacite : '';
         document.getElementById('editToast').className   = 'toast';
         document.getElementById('modalOverlay').classList.add('open');
     }
@@ -422,6 +431,7 @@
         const title       = document.getElementById('editTitle').value.trim();
         const date        = document.getElementById('editDate').value;
         const description = document.getElementById('editDescription').value.trim();
+        const capacite    = document.getElementById('editCapacite').value;
         const toast       = document.getElementById('editToast');
 
         toast.className = 'toast';
@@ -429,7 +439,7 @@
         const res  = await fetch(`${API}/events/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title, date, description })
+            body: JSON.stringify({ title, date, description, capacite: capacite ? Number(capacite) : null })
         });
         const data = await res.json();
 

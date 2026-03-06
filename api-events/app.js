@@ -22,9 +22,7 @@ app.post('/events', (req, res) => {
 
     // 1. Validation basique
     if (!newEvent.title || !newEvent.date) {
-        return res.status(400).json({
-            error: "Le titre et la date sont obligatoires"
-        });
+        return res.status(400).json({ error: "Le titre et la date sont obligatoires" });
     }
 
     // 2. Validation logique : pas d'événement dans le passé
@@ -39,22 +37,36 @@ app.post('/events', (req, res) => {
         });
     }
 
+    // 2b. Validation capacite
+    if (newEvent.capacite !== undefined && newEvent.capacite !== null) {
+        const cap = Number(newEvent.capacite);
+        if (!Number.isInteger(cap) || cap < 1) {
+            return res.status(400).json({ error: "La capacité doit être un entier positif" });
+        }
+    }
+
     // 3. Insertion en base de données
-    const stmt = db.prepare('INSERT INTO events (title, date, description) VALUES (?, ?, ?)');
-    const result = stmt.run(newEvent.title, newEvent.date, newEvent.description || null);
+    const stmt = db.prepare('INSERT INTO events (title, date, description, capacite) VALUES (?, ?, ?, ?)');
+    const result = stmt.run(
+        newEvent.title,
+        newEvent.date,
+        newEvent.description || null,
+        newEvent.capacite    || null
+    );
 
     res.status(201).json({
-        id: result.lastInsertRowid,
-        title: newEvent.title,
-        date: newEvent.date,
-        description: newEvent.description || null
+        id:          result.lastInsertRowid,
+        title:       newEvent.title,
+        date:        newEvent.date,
+        description: newEvent.description || null,
+        capacite:    newEvent.capacite    || null
     });
 });
 
 // PUT /events/:id : Mettre à jour un événement
 app.put('/events/:id', (req, res) => {
     const { id } = req.params;
-    const { title, date, description } = req.body;
+    const { title, date, description, capacite } = req.body;
 
     if (!title || !date) {
         return res.status(400).json({ error: "Le titre et la date sont obligatoires" });
@@ -67,15 +79,22 @@ app.put('/events/:id', (req, res) => {
         return res.status(400).json({ error: "La date ne peut pas être dans le passé" });
     }
 
+    if (capacite !== undefined && capacite !== null) {
+        const cap = Number(capacite);
+        if (!Number.isInteger(cap) || cap < 1) {
+            return res.status(400).json({ error: "La capacité doit être un entier positif" });
+        }
+    }
+
     const result = db.prepare(
-        'UPDATE events SET title = ?, date = ?, description = ? WHERE id = ?'
-    ).run(title, date, description || null, id);
+        'UPDATE events SET title = ?, date = ?, description = ?, capacite = ? WHERE id = ?'
+    ).run(title, date, description || null, capacite || null, id);
 
     if (result.changes === 0) {
         return res.status(404).json({ error: "Événement introuvable" });
     }
 
-    res.status(200).json({ id: Number(id), title, date, description: description || null });
+    res.status(200).json({ id: Number(id), title, date, description: description || null, capacite: capacite || null });
 });
 
 // DELETE /events/:id : Supprimer un événement
