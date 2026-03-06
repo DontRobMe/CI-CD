@@ -46,12 +46,14 @@ app.post('/events', (req, res) => {
     }
 
     // 3. Insertion en base de données
-    const stmt = db.prepare('INSERT INTO events (title, date, description, capacite) VALUES (?, ?, ?, ?)');
+    const stmt = db.prepare('INSERT INTO events (title, date, description, capacite, categorie, lieu) VALUES (?, ?, ?, ?, ?, ?)');
     const result = stmt.run(
         newEvent.title,
         newEvent.date,
         newEvent.description || null,
-        newEvent.capacite    || null
+        newEvent.capacite    || null,
+        newEvent.categorie   || null,
+        newEvent.lieu        || null
     );
 
     res.status(201).json({
@@ -59,14 +61,16 @@ app.post('/events', (req, res) => {
         title:       newEvent.title,
         date:        newEvent.date,
         description: newEvent.description || null,
-        capacite:    newEvent.capacite    || null
+        capacite:    newEvent.capacite    || null,
+        categorie:   newEvent.categorie   || null,
+        lieu:        newEvent.lieu        || null
     });
 });
 
 // PUT /events/:id : Mettre à jour un événement
 app.put('/events/:id', (req, res) => {
     const { id } = req.params;
-    const { title, date, description, capacite } = req.body;
+    const { title, date, description, capacite, categorie, lieu } = req.body;
 
     if (!title || !date) {
         return res.status(400).json({ error: "Le titre et la date sont obligatoires" });
@@ -87,14 +91,14 @@ app.put('/events/:id', (req, res) => {
     }
 
     const result = db.prepare(
-        'UPDATE events SET title = ?, date = ?, description = ?, capacite = ? WHERE id = ?'
-    ).run(title, date, description || null, capacite || null, id);
+        'UPDATE events SET title = ?, date = ?, description = ?, capacite = ?, categorie = ?, lieu = ? WHERE id = ?'
+    ).run(title, date, description || null, capacite || null, categorie || null, lieu || null, id);
 
     if (result.changes === 0) {
         return res.status(404).json({ error: "Événement introuvable" });
     }
 
-    res.status(200).json({ id: Number(id), title, date, description: description || null, capacite: capacite || null });
+    res.status(200).json({ id: Number(id), title, date, description: description || null, capacite: capacite || null, categorie: categorie || null, lieu: lieu || null });
 });
 
 // DELETE /events/:id : Supprimer un événement
