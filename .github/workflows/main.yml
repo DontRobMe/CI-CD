@@ -1,33 +1,68 @@
 # 1. Nom de votre orchestrateur
-name: Pipeline CI API Events
+name: Pipeline CI/CD — API Events
 
 # 2. Le Déclencheur (Trigger) : Quand le robot doit-il s'allumer ?
 on:
   push:
-    branches: [ "main" ] # Dès qu'on push sur la branche main
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
 
 # 3. La liste des tâches (Jobs)
 jobs:
-  verification:
-    # On choisit le système d'exploitation du robot
-    runs-on: ubuntu-latest
 
-    # La suite d'actions à exécuter
+  # ─────────────────────────────────────────
+  # JOB 1 — Intégration Continue (CI)
+  # ─────────────────────────────────────────
+  ci:
+    name: 🔨 Build & Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api-events   # Tous les "run" s'exécutent dans ce dossier
+
     steps:
       # A. Récupérer le code du dépôt
-      - name: Checkout du code
+      - name: 📥 Checkout du code
         uses: actions/checkout@v4
 
       # B. Installer Node.js sur la machine du robot
-      - name: Installation de Node.js
+      - name: 🟢 Installation de Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: api-events/package-lock.json
 
       # C. Installer les dépendances (npm install)
-      - name: Installation des dépendances
-        run: npm install
+      - name: 📦 Installation des dépendances
+        run: npm ci
 
-    # LA LIGNE QUI CHANGE TOUT :
-      - name: Exécuter les tests avec Jest
+      # D. Exécuter les tests avec Jest
+      - name: 🧪 Exécuter les tests Jest
         run: npm test
+
+  # ─────────────────────────────────────────
+  # JOB 2 — Déploiement Staging (CD)
+  # Uniquement sur push dans main (pas sur les PR)
+  # ─────────────────────────────────────────
+  deploy-staging:
+    name: 🚀 Déploiement Staging
+    runs-on: ubuntu-latest
+    needs: ci                          # Ne démarre que si le job CI est vert
+    if: github.event_name == 'push'   # Pas sur les pull_request
+
+    steps:
+      # A. Récupérer le code du dépôt
+      - name: 📥 Checkout du code
+        uses: actions/checkout@v4
+
+      # B. Simuler le déploiement en staging
+      - name: 🌍 Simuler le déploiement en staging
+        run: |
+          echo "✅ CI passée — Déploiement sur staging..."
+          echo "📦 Version : ${{ github.sha }}"
+          echo "🌿 Branche : ${{ github.ref_name }}"
+          echo "👤 Déclenché par : ${{ github.actor }}"
+          # 👇 Remplacer par la vraie commande de déploiement
+          # ex: ssh user@staging-server "cd /app && git pull && npm ci && pm2 restart api"
